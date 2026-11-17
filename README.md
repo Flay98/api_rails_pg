@@ -4,7 +4,18 @@
 
 ## Подключение и запуск
 
-Команды выполнять из корня проекта. Локальный PostgreSQL обнаружен на порту **5433**. При другой конфигурации изменить `PGHOST`/`PGPORT` в окружении. Пароль берётся из `API_RAILS_PG_DATABASE_PASSWORD` или `PGPASSWORD`; файлы с паролями не нужны. `.env` автоматически не загружается.
+Команды выполнять из корня проекта. Локальный PostgreSQL обнаружен на порту **5433**. При другой конфигурации изменить `PGHOST`/`PGPORT` в окружении. Пароль уже сохранён в зашифрованном `config/credentials.yml.enc` в поле `database.password` и загружается автоматически. `config/master.key` хранится локально и исключён из Git. Переменные `API_RAILS_PG_DATABASE_PASSWORD` и `PGPASSWORD`, если заданы, имеют приоритет. `.env` автоматически не загружается.
+
+Для обычного запуска подготовленного проекта:
+
+```bash
+cd /home/yan-kovalenko/RubymineProjects/api_rails_pg
+bin/rails server
+```
+
+Пароль повторно вводить не нужно. Для его изменения использовать `bin/rails credentials:edit`, сохранив поле `database.password`. На другом компьютере потребуется передать `config/master.key` отдельно от Git или задать `RAILS_MASTER_KEY`.
+
+Команды первоначальной подготовки баз и проверки подключения:
 
 ```bash
 cd /home/yan-kovalenko/RubymineProjects/api_rails_pg
@@ -12,9 +23,6 @@ unset DATABASE_URL
 export PGHOST=127.0.0.1
 export PGPORT=5433
 export PGUSER=yanik_pryanik
-read -rsp 'Пароль PostgreSQL: ' API_RAILS_PG_DATABASE_PASSWORD
-export API_RAILS_PG_DATABASE_PASSWORD
-printf '\n'
 bundle check
 bin/rails db:create
 bin/rails db:migrate db:seed
@@ -32,7 +40,7 @@ bin/rails server -b 127.0.0.1 -p 3000
 
 ## Проверка
 
-В другом терминале задать те же переменные подключения и пароль:
+В другом терминале перейти в корень проекта. Пароль загрузится из Rails credentials:
 
 ```bash
 bin/rails test
@@ -74,7 +82,9 @@ curl -i 'http://localhost:3000/v1/applies?read=false&invited=false'
 
 `GET /up` — стандартная проверка работоспособности Rails. Неизвестные пути, включая `/`, и неподходящие HTTP-методы возвращают JSON с HTTP 404.
 
-Фильтры списка: компании — `name`, `location`; вакансии — `name`, `place`; соискатели — `name`, `stack`; отклики — `read`, `invited`. Текстовые фильтры ищут подстроку без учёта регистра, несколько фильтров соединяются через AND; `%` и `_` воспринимаются как обычные символы. Фильтры поддержаны и в соответствующих списках связанных записей. Значения boolean: JSON `true`/`false`, строки `true`/`false`, `1`/`0`. Например, `GET /v1/applies?read=true&invited=false` возвращает прочитанные отклонённые отклики. Сброс статуса и отказ в приглашении: `PUT /v1/applies/:id` с `{"read":false}` или `{"invited":false}`.
+Фильтры списка: компании — `name`, `location`, `deleted`; вакансии — `name`, `place`; соискатели — `name`, `stack`; отклики — `read`, `invited`. Текстовые фильтры ищут подстроку без учёта регистра, несколько фильтров соединяются через AND; `%` и `_` воспринимаются как обычные символы. Фильтры поддержаны и в соответствующих списках связанных записей. Значения boolean: JSON `true`/`false`, строки `true`/`false`, `1`/`0`. Например, `GET /v1/applies?read=true&invited=false` возвращает прочитанные отклонённые отклики. Сброс статуса и отказ в приглашении: `PUT /v1/applies/:id` с `{"read":false}` или `{"invited":false}`.
+
+`GET /v1/companies?deleted=true` возвращает только мягко удалённые компании, `GET /v1/companies?deleted=false` — только активные. Без `deleted` возвращаются все компании. Фильтр можно сочетать с `name` и `location`, например `/v1/companies?deleted=true&name=MoGo&location=York`. Неверное или пустое значение `deleted` возвращает HTTP 400 с JSON-ошибкой.
 
 Вложенная вакансия ищется только среди вакансий компании из URL. Чужая вакансия возвращает 404; при создании и изменении вложенной вакансии `company_id` определяется URL.
 

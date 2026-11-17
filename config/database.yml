@@ -5,7 +5,7 @@ default: &default
   host: <%= ENV.fetch("PGHOST", "127.0.0.1").to_json %>
   port: <%= ENV.fetch("PGPORT", 5433) %>
   username: <%= ENV.fetch("PGUSER", "yanik_pryanik").to_json %>
-  password: <%= ENV.fetch("API_RAILS_PG_DATABASE_PASSWORD", ENV["PGPASSWORD"]).to_json %>
+  password: <%= (ENV["API_RAILS_PG_DATABASE_PASSWORD"] || ENV["PGPASSWORD"] || Rails.application.credentials.dig(:database, :password)).to_json %>
 
 development:
   <<: *default

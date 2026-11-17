@@ -41,6 +41,46 @@ class ApiTest < ActionDispatch::IntegrationTest
     assert_equal [ @job.id ], ids(:jobs)
   end
 
+  test "companies filter deleted and active records and keep both when the filter is omitted" do
+    @company.delete_company
+
+    { "true" => [ @company.id ], "1" => [ @company.id ],
+      "false" => [ @other_company.id ], "0" => [ @other_company.id ] }.each do |value, expected|
+      get "/v1/companies", params: { deleted: value }
+      assert_response :ok
+      assert_equal expected, ids(:companies)
+      assert_equal [ value == "true" || value == "1" ], json.fetch("companies").pluck("deleted").uniq
+    end
+
+    get "/v1/companies"
+    assert_response :ok
+    assert_equal [ @company.id, @other_company.id ].sort, ids(:companies)
+  end
+
+  test "company deletion status combines with name and location filters" do
+    @company.delete_company
+    Company.create!(name: "MoGo", location: "New York")
+    Company.create!(name: "MoGo", location: "London", deleted: true)
+    Company.create!(name: "Other", location: "New York", deleted: true)
+
+    get "/v1/companies", params: { name: "mOg", location: "york", deleted: "true" }
+    assert_response :ok
+    assert_equal [ @company.id ], ids(:companies)
+
+    get "/v1/companies", params: { name: "BuildEmpire", deleted: "true" }
+    assert_response :ok
+    assert_empty ids(:companies)
+  end
+
+  test "invalid company deletion filters return a JSON bad request" do
+    [ "banana", "", "yes", [ "true" ], { value: "true" } ].each do |value|
+      get "/v1/companies", params: { deleted: value }
+      assert_response :bad_request
+      assert_equal "application/json", response.media_type
+      assert_equal "bad_request", json.fetch("status")
+    end
+  end
+
   test "geeks filter by name and stack" do
     get "/v1/geeks", params: { name: "ik", stack: "ruby" }
     assert_response :ok
